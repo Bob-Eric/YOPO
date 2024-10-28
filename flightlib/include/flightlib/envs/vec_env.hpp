@@ -26,7 +26,7 @@
 
 namespace flightlib {
 
-template<typename EnvBase>
+// template<typename QuadrotorEnv>
 class VecEnv {
    public:
 	VecEnv();
@@ -77,7 +77,7 @@ class VecEnv {
    private:
 	// create objects
 	Logger logger_{"VecEnv"};
-	std::vector<std::unique_ptr<EnvBase>> envs_;
+	std::vector<std::unique_ptr<QuadrotorEnv>> envs_;
 
 	// Flightmare(Unity3D)
 	std::shared_ptr<UnityBridge> unity_bridge_ptr_;

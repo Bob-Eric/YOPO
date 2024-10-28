@@ -1,17 +1,15 @@
 #include "flightlib/envs/vec_env.hpp"
 
+#include "flightlib/envs/quadrotor_env.hpp"
+
 namespace flightlib {
 
-template<typename EnvBase>
-VecEnv<EnvBase>::VecEnv() : VecEnv(getenv("FLIGHTMARE_PATH") + std::string("/flightlib/configs/vec_env.yaml")) {}
+VecEnv::VecEnv() : VecEnv(getenv("FLIGHTMARE_PATH") + std::string("/flightlib/configs/vec_env.yaml")) {}
 
-template<typename EnvBase>
-VecEnv<EnvBase>::VecEnv(const YAML::Node& cfg_node) : cfg_(cfg_node) {
-	init();
-}
+VecEnv::VecEnv(const YAML::Node& cfg_node) : cfg_(cfg_node) { init(); }
 
-template<typename EnvBase>
-VecEnv<EnvBase>::VecEnv(const std::string& cfgs, const bool from_file) {
+
+VecEnv::VecEnv(const std::string& cfgs, const bool from_file) {
 	// load environment configuration
 	if (from_file)
 		cfg_ = YAML::LoadFile(cfgs);
@@ -21,8 +19,8 @@ VecEnv<EnvBase>::VecEnv(const std::string& cfgs, const bool from_file) {
 	init();
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::init(void) {
+
+void VecEnv::init(void) {
 	// note that the cfg are input from python, and many have changed from vec_end.yaml
 	unity_render_          = cfg_["env"]["render"].as<bool>();
 	supervised_mode_       = cfg_["env"]["supervised"].as<bool>();
@@ -45,7 +43,7 @@ void VecEnv<EnvBase>::init(void) {
 	// create & setup environments
 	const bool render = false;
 	for (int i = 0; i < num_envs_; i++) {
-		envs_.push_back(std::make_unique<EnvBase>());
+		envs_.push_back(std::make_unique<QuadrotorEnv>());
 	}
 
 	// set Unity (init unity_bridge_ptr_ and add quadrotors to envs)
@@ -76,13 +74,13 @@ void VecEnv<EnvBase>::init(void) {
 	          << "scene_id          =        [" << scene_id_ << "]" << std::endl;
 }
 
-template<typename EnvBase>
-VecEnv<EnvBase>::~VecEnv() {}
+
+VecEnv::~VecEnv() {}
 
 // ======================	set functions	===================== //
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::reset(Ref<MatrixRowMajor<>> obs) {
+
+bool VecEnv::reset(Ref<MatrixRowMajor<>> obs) {
 	if (obs.rows() != num_envs_ || obs.cols() != obs_dim_) {
 		logger_.error("Input matrix dimensions do not match with that of the environment.");
 		return false;
@@ -103,8 +101,8 @@ bool VecEnv<EnvBase>::reset(Ref<MatrixRowMajor<>> obs) {
 	return true;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::setState(ConstRef<MatrixRowMajor<>> state) {
+
+bool VecEnv::setState(ConstRef<MatrixRowMajor<>> state) {
 	if (state.rows() != num_envs_ || state.cols() != 13) {  // 13: pvaq
 		logger_.error("Input state dimensions do not match with state.");
 		return false;
@@ -117,8 +115,8 @@ bool VecEnv<EnvBase>::setState(ConstRef<MatrixRowMajor<>> state) {
 	return true;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::setGoal(ConstRef<MatrixRowMajor<>> goal) {
+
+bool VecEnv::setGoal(ConstRef<MatrixRowMajor<>> goal) {
 	if (goal.rows() != num_envs_ || goal.cols() != 3) {
 		logger_.error("Input goal dimensions do not match with 3.");
 		return false;
@@ -131,8 +129,8 @@ bool VecEnv<EnvBase>::setGoal(ConstRef<MatrixRowMajor<>> goal) {
 	return true;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::step(Ref<MatrixRowMajor<>> act, Ref<MatrixRowMajor<>> obs, Ref<MatrixRowMajor<>> reward, Ref<BoolVector<>> done) {
+
+bool VecEnv::step(Ref<MatrixRowMajor<>> act, Ref<MatrixRowMajor<>> obs, Ref<MatrixRowMajor<>> reward, Ref<BoolVector<>> done) {
 	if (act.rows() != num_envs_ || act.cols() != act_dim_ || obs.rows() != num_envs_ || obs.cols() != obs_dim_ || reward.rows() != num_envs_ ||
 	    reward.cols() != rew_dim_ || done.rows() != num_envs_ || done.cols() != 1) {
 		logger_.error("Input matrix dimensions do not match with that of the environment.");
@@ -155,9 +153,8 @@ bool VecEnv<EnvBase>::step(Ref<MatrixRowMajor<>> act, Ref<MatrixRowMajor<>> obs,
 	return true;
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::perAgentStep(int agent_id, Ref<MatrixRowMajor<>> act, Ref<MatrixRowMajor<>> obs, Ref<MatrixRowMajor<>> reward,
-                                   Ref<BoolVector<>> done) {
+
+void VecEnv::perAgentStep(int agent_id, Ref<MatrixRowMajor<>> act, Ref<MatrixRowMajor<>> obs, Ref<MatrixRowMajor<>> reward, Ref<BoolVector<>> done) {
 	envs_[agent_id]->step(act.row(agent_id), obs.row(agent_id), reward.row(agent_id));
 
 	// use larger collision threshold in training and lower in testing
@@ -174,8 +171,8 @@ void VecEnv<EnvBase>::perAgentStep(int agent_id, Ref<MatrixRowMajor<>> act, Ref<
 	}
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::setMapID(ConstRef<IntVector<>> id) {
+
+void VecEnv::setMapID(ConstRef<IntVector<>> id) {
 	if (id.rows() != num_envs_) {
 		logger_.error("Input matrix dimensions do not match with that of the environment.");
 		return;
@@ -186,8 +183,8 @@ void VecEnv<EnvBase>::setMapID(ConstRef<IntVector<>> id) {
 	}
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::setSeed(const int seed) {
+
+void VecEnv::setSeed(const int seed) {
 	int seed_inc = seed;
 	for (int i = 0; i < num_envs_; i++)
 		envs_[i]->setSeed(seed_inc++);
@@ -195,14 +192,14 @@ void VecEnv<EnvBase>::setSeed(const int seed) {
 
 // ======================	set functions	===================== //
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::getObs(Ref<MatrixRowMajor<>> obs) {
+
+void VecEnv::getObs(Ref<MatrixRowMajor<>> obs) {
 	for (int i = 0; i < num_envs_; i++)
 		envs_[i]->getObs(obs.row(i));
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::getRGBImage(Ref<ImgMatrixRowMajor<>> img, const bool rgb_image) {
+
+bool VecEnv::getRGBImage(Ref<ImgMatrixRowMajor<>> img, const bool rgb_image) {
 	bool valid_img = true;
 	for (int i = 0; i < num_envs_; i++) {
 		valid_img &= envs_[i]->getRGBImage(img.row(i), rgb_image);
@@ -210,8 +207,8 @@ bool VecEnv<EnvBase>::getRGBImage(Ref<ImgMatrixRowMajor<>> img, const bool rgb_i
 	return valid_img;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::getStereoImage(Ref<DepthImgMatrixRowMajor<>> stereo_img) {
+
+bool VecEnv::getStereoImage(Ref<DepthImgMatrixRowMajor<>> stereo_img) {
 	bool valid_img = true;
 	for (int i = 0; i < num_envs_; i++) {
 		valid_img &= envs_[i]->getStereoImage(stereo_img.row(i));
@@ -219,8 +216,8 @@ bool VecEnv<EnvBase>::getStereoImage(Ref<DepthImgMatrixRowMajor<>> stereo_img) {
 	return valid_img;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::getDepthImage(Ref<DepthImgMatrixRowMajor<>> depth_img) {
+
+bool VecEnv::getDepthImage(Ref<DepthImgMatrixRowMajor<>> depth_img) {
 	bool valid_img = true;
 	for (int i = 0; i < num_envs_; i++) {
 		valid_img &= envs_[i]->getDepthImage(depth_img.row(i));
@@ -229,9 +226,7 @@ bool VecEnv<EnvBase>::getDepthImage(Ref<DepthImgMatrixRowMajor<>> depth_img) {
 }
 
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::getCostAndGradient(ConstRef<MatrixRowMajor<>> dp, ConstRef<IntVector<>> traj_id, Ref<Vector<>> cost,
-                                         Ref<MatrixRowMajor<>> grad) {
+void VecEnv::getCostAndGradient(ConstRef<MatrixRowMajor<>> dp, ConstRef<IntVector<>> traj_id, Ref<Vector<>> cost, Ref<MatrixRowMajor<>> grad) {
 #pragma omp parallel for schedule(dynamic) num_threads(num_threads_)
 	for (int i = 0; i < num_envs_; i++) {
 		envs_[i]->getCostAndGradient(dp.row(i), traj_id(i), cost(i), grad.row(i));
@@ -241,8 +236,8 @@ void VecEnv<EnvBase>::getCostAndGradient(ConstRef<MatrixRowMajor<>> dp, ConstRef
 
 // ======================	unity functions	===================== //
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::setUnity(bool render) {
+
+bool VecEnv::setUnity(bool render) {
 	unity_render_ = render;
 	if (unity_render_ && unity_bridge_ptr_ == nullptr) {
 		// create unity bridge
@@ -256,16 +251,16 @@ bool VecEnv<EnvBase>::setUnity(bool render) {
 	return true;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::spawnTrees() {
+
+bool VecEnv::spawnTrees() {
 	if (!unity_ready_ || unity_bridge_ptr_ == nullptr)
 		return false;
 	bool spawned = unity_bridge_ptr_->spawnTrees(bounding_box_, bounding_box_origin_, avg_tree_spacing_);
 	return spawned;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::savePointcloud(int ply_id) {
+
+bool VecEnv::savePointcloud(int ply_id) {
 	if (!unity_ready_ || unity_bridge_ptr_ == nullptr)
 		return false;
 	Vector<3> min_corner = bounding_box_origin_ - 0.5 * bounding_box_;
@@ -274,8 +269,8 @@ bool VecEnv<EnvBase>::savePointcloud(int ply_id) {
 	return true;
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::spawnTreesAndSavePointcloud(int ply_id_in, float spacing) {
+
+bool VecEnv::spawnTreesAndSavePointcloud(int ply_id_in, float spacing) {
 	Scalar avg_tree_spacing = avg_tree_spacing_;
 	if (spacing > 0)
 		avg_tree_spacing = spacing;
@@ -315,8 +310,8 @@ bool VecEnv<EnvBase>::spawnTreesAndSavePointcloud(int ply_id_in, float spacing) 
 }
 
 // For supervised learning
-template<typename EnvBase>
-void VecEnv<EnvBase>::generateMaps() {
+
+void VecEnv::generateMaps() {
 	std::vector<std::string> ply_files;
 	for (const auto& entry : std::filesystem::directory_iterator(ply_path_)) {
 		if (entry.is_regular_file() && entry.path().extension() == ".ply") {
@@ -349,16 +344,16 @@ void VecEnv<EnvBase>::generateMaps() {
 	}
 }
 
-template<typename EnvBase>
-bool VecEnv<EnvBase>::connectUnity(void) {
+
+bool VecEnv::connectUnity(void) {
 	if (unity_bridge_ptr_ == nullptr)
 		return false;
 	unity_ready_ = unity_bridge_ptr_->connectUnity(scene_id_);
 	return unity_ready_;
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::render(void) {
+
+void VecEnv::render(void) {
 	if (unity_render_ && unity_ready_) {
 		frameID++;
 		FrameID frameID_rt;
@@ -369,8 +364,8 @@ void VecEnv<EnvBase>::render(void) {
 	}
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::disconnectUnity(void) {
+
+void VecEnv::disconnectUnity(void) {
 	if (unity_bridge_ptr_ != nullptr) {
 		unity_bridge_ptr_->disconnectUnity();
 		unity_ready_ = false;
@@ -379,8 +374,8 @@ void VecEnv<EnvBase>::disconnectUnity(void) {
 	}
 }
 
-template<typename EnvBase>
-void VecEnv<EnvBase>::close() {
+
+void VecEnv::close() {
 	for (int i = 0; i < num_envs_; i++) {
 		envs_[i]->close();
 	}
@@ -389,8 +384,8 @@ void VecEnv<EnvBase>::close() {
 // ======================	other functions	===================== //
 
 // Extract the number from the filename (e.g., pointcloud-1.ply)
-template<typename EnvBase>
-int VecEnv<EnvBase>::extract_number(const std::string& filename) {
+
+int VecEnv::extract_number(const std::string& filename) {
 	std::regex number_regex("pointcloud-(\\d+)\\.ply");
 	std::smatch match;
 	if (std::regex_search(filename, match, number_regex)) {
@@ -401,6 +396,5 @@ int VecEnv<EnvBase>::extract_number(const std::string& filename) {
 
 // IMPORTANT. Otherwise:
 // Segmentation fault (core dumped)
-template class VecEnv<QuadrotorEnv>;
 
 }  // namespace flightlib
