@@ -19,8 +19,13 @@ def configure_random_seed(seed, env=None):
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0, help="random seed")
-    parser.add_argument("--num_each_env", type=int, default=10000, help="num of images to save in each env")
-    parser.add_argument("--num_env", type=int, default=10, help="num of env to change")
+    parser.add_argument(
+        "--num_each_env",
+        type=int,
+        default=100,
+        help="num of images to save in each env",
+    )
+    parser.add_argument("--num_env", type=int, default=1, help="num of env to change")
     return parser
 
 
@@ -30,14 +35,19 @@ def main():
     configure_random_seed(args.seed)
 
     # load configurations
-    cfg = YAML().load(open(os.environ["FLIGHTMARE_PATH"] + "/flightlib/configs/vec_env.yaml", 'r'))
+    cfg = YAML().load(
+        open(os.environ["FLIGHTMARE_PATH"] + "/flightlib/configs/vec_env.yaml", "r")
+    )
     cfg["env"]["num_envs"] = 1
     cfg["env"]["num_threads"] = 1
     cfg["env"]["render"] = True
     cfg["env"]["supervised"] = False
     cfg["env"]["imitation"] = False
 
-    os.system(os.environ["FLIGHTMARE_PATH"] + "/flightrender/RPG_Flightmare/flightmare.x86_64 &")
+    os.system(
+        os.environ["FLIGHTMARE_PATH"]
+        + "/flightrender/RPG_Flightmare/flightmare.x86_64 &"
+    )
     env = QuadrotorEnv_v1(dump(cfg, Dumper=RoundTripDumper), False)
     env = wrapper.FlightEnvVec(env)
     env.connectUnity()
@@ -58,7 +68,12 @@ def main():
         positions = np.zeros([iteration, 3], dtype=np.float32)
         quaternions = np.zeros([iteration, 4], dtype=np.float32)
 
-        save_dir = os.environ["FLIGHTMARE_PATH"] + cfg["env"]["dataset_path"] + str(epoch_i) + "/"
+        save_dir = (
+            os.environ["FLIGHTMARE_PATH"]
+            + cfg["env"]["dataset_path"]
+            + str(epoch_i)
+            + "/"
+        )
         label_path = save_dir + "/label.npz"
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)

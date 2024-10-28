@@ -31,3 +31,7 @@ run/utils/*.csv
 # dataset
 /run/yopo_sim/*
 
+
+fast_simulator
+**/.cache
+typings

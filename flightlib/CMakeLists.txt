@@ -15,6 +15,7 @@ set(
 	EIGEN_ALTERNATIVE "" CACHE STRING
 	"Path to alternative Eigen, autodownload if blank"
 )
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ###############################################################################
 # Finding Dependencies

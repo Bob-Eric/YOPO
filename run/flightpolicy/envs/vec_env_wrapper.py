@@ -6,11 +6,11 @@ import cv2
 from ruamel.yaml import YAML
 from typing import Any, List, Type
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices
+from flightgym import QuadrotorEnv_v1
 
 
 class FlightEnvVec(VecEnv):
-
-    def __init__(self, impl):
+    def __init__(self, impl: QuadrotorEnv_v1):
         self.wrapper = impl
         # params
         self.action_dim = self.wrapper.getActDim()
@@ -18,7 +18,11 @@ class FlightEnvVec(VecEnv):
         self.reward_dim = self.wrapper.getRewDim()
         self.img_width = self.wrapper.getImgWidth()
         self.img_height = self.wrapper.getImgHeight()
-        cfg = YAML().load(open(os.environ["FLIGHTMARE_PATH"] + "/flightlib/configs/traj_opt.yaml", 'r'))
+        cfg = YAML().load(
+            open(
+                os.environ["FLIGHTMARE_PATH"] + "/flightlib/configs/traj_opt.yaml", "r"
+            )
+        )
         scale = 32  # The downsampling factor of backbone
         self.network_height = scale * cfg["vertical_num"]
         self.network_width = scale * cfg["horizon_num"]
@@ -27,21 +31,33 @@ class FlightEnvVec(VecEnv):
         self.reward_names = self.wrapper.getRewardNames()
 
         # observations
-        self._traj_cost = np.zeros([self.num_envs, 1], dtype=np.float32)  # cost of current pred
-        self._traj_grad = np.zeros([self.num_envs, 9], dtype=np.float32)  # gard of current pred x_pva y_pav z_pva
-        self._observation = np.zeros([self.num_envs, self.observation_dim], dtype=np.float32)
-        self._rgb_img_obs = np.zeros([self.num_envs, self.img_width * self.img_height * 3], dtype=np.uint8)
-        self._gray_img_obs = np.zeros([self.num_envs, self.img_width * self.img_height], dtype=np.uint8)
-        self._depth_img_obs = np.zeros([self.num_envs, self.img_width * self.img_height], dtype=np.float32)
+        self._traj_cost = np.zeros(
+            [self.num_envs, 1], dtype=np.float32
+        )  # cost of current pred
+        self._traj_grad = np.zeros(
+            [self.num_envs, 9], dtype=np.float32
+        )  # gard of current pred x_pva y_pav z_pva
+        self._observation = np.zeros(
+            [self.num_envs, self.observation_dim], dtype=np.float32
+        )
+        self._rgb_img_obs = np.zeros(
+            [self.num_envs, self.img_width * self.img_height * 3], dtype=np.uint8
+        )
+        self._gray_img_obs = np.zeros(
+            [self.num_envs, self.img_width * self.img_height], dtype=np.uint8
+        )
+        self._depth_img_obs = np.zeros(
+            [self.num_envs, self.img_width * self.img_height], dtype=np.float32
+        )
         self._reward = np.zeros([self.num_envs, self.reward_dim], dtype=np.float32)
-        self._done = np.zeros((self.num_envs), dtype=np.bool)
+        self._done = np.zeros((self.num_envs), dtype=np.bool_)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # observation: [p_wb, v_b, a_b, q_wb] (in Body Frame); action: dp_pred; reward: cost
     def step(self, action):
         if action.ndim <= 1:
             action = action.reshape((self.num_envs, -1))
-        if action.dtype == np.dtype('int'):
+        if action.dtype == np.dtype("int"):
             action = action.astype(np.float32)
         self.wrapper.step(
             action,
@@ -108,7 +124,9 @@ class FlightEnvVec(VecEnv):
             pred_dp = pred_dp.reshape((self.num_envs, -1))
         if traj_id.ndim <= 1:
             traj_id = traj_id.reshape((self.num_envs, -1))
-        self.wrapper.getCostAndGradient(pred_dp, traj_id, self._traj_cost, self._traj_grad)
+        self.wrapper.getCostAndGradient(
+            pred_dp, traj_id, self._traj_cost, self._traj_grad
+        )
         return self._traj_cost.copy(), self._traj_grad.copy()
 
     def getRGBImage(self, rgb=False):
@@ -118,7 +136,9 @@ class FlightEnvVec(VecEnv):
         else:
             self.wrapper.getRGBImage(self._gray_img_obs, False)
             gray_img = self._gray_img_obs
-            gray_img = np.reshape(gray_img, (gray_img.shape[0], self.img_height, self.img_width))
+            gray_img = np.reshape(
+                gray_img, (gray_img.shape[0], self.img_height, self.img_width)
+            )
             return gray_img.copy()
 
     def getDepthImage(self, resize=True):
@@ -130,9 +150,14 @@ class FlightEnvVec(VecEnv):
         depth[np.isnan(depth)] = 1.0
         depth = np.reshape(depth, (depth.shape[0], self.img_height, self.img_width))
         if resize:
-            depth_ = np.zeros((depth.shape[0], self.network_height, self.network_width), dtype=np.float32())
+            depth_ = np.zeros(
+                (depth.shape[0], self.network_height, self.network_width),
+                dtype=np.float32(),
+            )
             for i in range(depth.shape[0]):
-                depth_[i] = cv2.resize(depth[i], (self.network_width, self.network_height))
+                depth_[i] = cv2.resize(
+                    depth[i], (self.network_width, self.network_height)
+                )
             depth = np.expand_dims(depth_, axis=1)
         else:
             depth = np.expand_dims(depth, axis=1)
@@ -144,13 +169,22 @@ class FlightEnvVec(VecEnv):
         depth = self._depth_img_obs
         depth = np.minimum(depth, 20) / 20
 
-        depth_ = np.zeros((depth.shape[0], self.network_height, self.network_width), dtype=np.float32())
+        depth_ = np.zeros(
+            (depth.shape[0], self.network_height, self.network_width),
+            dtype=np.float32(),
+        )
         for i in range(depth.shape[0]):
             nan_mask = np.isnan(depth[i])
-            interpolated_image = cv2.inpaint(np.uint8(depth * 255), np.uint8(nan_mask), 1, cv2.INPAINT_NS)
+            interpolated_image = cv2.inpaint(
+                np.uint8(depth * 255), np.uint8(nan_mask), 1, cv2.INPAINT_NS
+            )
             interpolated_image = interpolated_image.astype(np.float32) / 255.0
-            interpolated_image = np.reshape(interpolated_image, (self.img_height, self.img_width))
-            depth_[i] = cv2.resize(interpolated_image, (self.network_width, self.network_height))
+            interpolated_image = np.reshape(
+                interpolated_image, (self.img_height, self.img_width)
+            )
+            depth_[i] = cv2.resize(
+                interpolated_image, (self.network_width, self.network_height)
+            )
         depth_ = np.expand_dims(depth_, axis=1)
 
         return depth_.copy()
@@ -184,11 +218,11 @@ class FlightEnvVec(VecEnv):
         self.wrapper.disconnectUnity()
 
     def env_method(
-            self,
-            method_name: str,
-            *method_args,
-            indices: VecEnvIndices = None,
-            **method_kwargs
+        self,
+        method_name: str,
+        *method_args,
+        indices: VecEnvIndices = None,
+        **method_kwargs,
     ) -> List[Any]:
         """Call instance methods of vectorized environments."""
         target_envs = self._get_target_envs(indices)
@@ -198,7 +232,7 @@ class FlightEnvVec(VecEnv):
         ]
 
     def env_is_wrapped(
-            self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices = None
+        self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices = None
     ) -> List[bool]:
         """Check if worker environments are wrapped with a given wrapper"""
         target_envs = self._get_target_envs(indices)
